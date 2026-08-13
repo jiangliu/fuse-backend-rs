@@ -643,6 +643,26 @@ impl Vfs {
         attr
     }
 
+    /// Convert an entry returned by a backend filesystem of the given mount
+    /// so it can be passed back to the FUSE client.
+    fn convert_backend_entry(&self, idata: VfsInode, mut entry: Entry) -> Result<Entry> {
+        self.convert_entry(idata.fs_idx(), entry.inode, &mut entry)
+    }
+
+    /// If a mapping is configured, remap the uid/gid in a request context
+    /// from external IDs to internal IDs.
+    fn remap_ctx_ids(
+        &self,
+        ctx: &mut Context,
+        mapping: Option<(u32, u32, u32)>,
+    ) -> Result<()> {
+        if let Some((internal_id, external_id, range)) = mapping {
+            ctx.uid = remap_id(ctx.uid, external_id, internal_id, range);
+            ctx.gid = remap_id(ctx.gid, external_id, internal_id, range);
+        }
+        Ok(())
+    }
+
     fn allocate_fs_idx(&self) -> Result<VfsIndex> {
         let superblocks = self.superblocks.load().deref().deref().clone();
         let start = self.next_super.load(Ordering::SeqCst);
