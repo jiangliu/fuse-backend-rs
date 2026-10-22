@@ -7,10 +7,12 @@
 //! By default the runtime type is auto-detected: `tokio-uring` is used if io-uring is
 //! available, otherwise the tokio current-thread runtime is used. The detection result
 //! may be overridden with the `FUSE_BACKEND_RS_ASYNC_RUNTIME` environment variable,
-//! which accepts `tokio` or `uring`, or by calling [`set_runtime_type()`] before any
-//! other function of this module or `async_file`. This is useful when the application's
-//! own tokio runtime drives futures from this crate, such as `FuseDevTask::poll_handler()`,
-//! because a plain tokio runtime can't poll `tokio-uring` objects.
+//! which accepts `tokio` or `uring`. [`set_runtime_type()`] called before any other
+//! function of this module or `async_file` overrides the environment variable too, so
+//! an application can pin the type even where the environment sets it. This is useful
+//! when the application's own tokio runtime drives futures from this crate, such as
+//! `FuseDevTask::poll_handler()`, because a plain tokio runtime can't poll
+//! `tokio-uring` objects.
 //!
 //! Note: creating io-uring rings locks kernel memory accounted against `RLIMIT_MEMLOCK`
 //! (see `account_memlock()` in the kernel). If the limit is too low (e.g. the default
@@ -54,7 +56,8 @@ pub enum RuntimeType {
 /// The crate fixes the type on first use, so call this before creating a [`Runtime`], an
 /// `async_file::File` or a `FuseDevTask`. It overrides `FUSE_BACKEND_RS_ASYNC_RUNTIME`. It
 /// returns an error if the type in effect is a different one, for example because io-uring
-/// isn't available.
+/// isn't available, or because another thread used the crate first and fixed the type
+/// already.
 pub fn set_runtime_type(runtime_type: RuntimeType) -> io::Result<()> {
     let _ = REQUESTED_RUNTIME_TYPE.set(runtime_type);
     let current = *RUNTIME_TYPE;
